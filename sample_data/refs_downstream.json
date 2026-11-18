@@ -49,6 +49,20 @@
       "sql": "select o.order_id from dim_order o",
       "upstream": ["dw.task_self"],
       "downstream": ["dw.task_self"]
+    },
+    {
+      "name": "ads.rpt_order_mix",
+      "kind": "task",
+      "sql": "select pay_amt, order_id from fct_pay p join dim_order o on 1 = 1",
+      "upstream": [],
+      "downstream": []
+    },
+    {
+      "name": "ads.rpt_order_audit",
+      "kind": "task",
+      "sql": "select order_id from dim_order o join fct_pay p on 1 = 1",
+      "upstream": [],
+      "downstream": []
     }
   ]
 }

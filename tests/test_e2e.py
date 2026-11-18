@@ -50,7 +50,7 @@ def test_full_flow_matches_ledger(client):
 
     rows = list(csv.DictReader(io.StringIO(client.get("/api/export/evidence.csv").text)))
     assert len(rows) == expected.OLD_TOTAL + 4
-    assert sum(1 for row in rows if row["verdict"] == "BREAKING") == 6
+    assert sum(1 for row in rows if row["verdict"] == "BREAKING") == 7
 
 
 def test_quarantine_csv_export(client):

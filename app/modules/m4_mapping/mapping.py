@@ -108,13 +108,61 @@ def _merge_conflicts(rows: list[dict]) -> list[dict]:
     return conflicts
 
 
+def attribute_bare(consumers: list[dict], fields_old: list[dict]) -> dict:
+    """裸列归属：唯一候选直接归属，多候选待查，无候选丢弃。
+
+    候选只看旧版本：作用域里的表谁有这个列名，谁就是候选。
+    同名列对得上多张表时绝不猜，列进 pending 等证据。
+    """
+    by_table: dict[str, dict[str, list[dict]]] = {}
+    for field in fields_old:
+        per_table = by_table.setdefault(field["table"].lower(), {})
+        per_table.setdefault(field["name"].lower(), []).append(field)
+    out: dict[str, dict] = {}
+    for consumer in consumers:
+        scope = [str(table).lower() for table in (consumer.get("scope_tables") or [])]
+        attributed: list[str] = []
+        pending: list[dict] = []
+        dropped: list[str] = []
+        for column in consumer.get("bare_columns") or []:
+            name_key = str(column).lower()
+            candidates = [field for table in scope
+                          for field in (by_table.get(table) or {}).get(name_key) or []]
+            if len(candidates) == 1:
+                field = candidates[0]
+                attributed.append(f"{field['table']}.{field['name']}")
+            elif candidates:
+                pending.append({
+                    "consumer": consumer["name"],
+                    "kind": consumer.get("kind") or "task",
+                    "column": str(column),
+                    "candidates": sorted({f"{field['table']}.{field['name']}"
+                                          for field in candidates}),
+                    "candidate_field_ids": sorted({field["field_id"]
+                                                   for field in candidates}),
+                    "reason": "REF_AMBIGUOUS",
+                })
+            else:
+                dropped.append(str(column))
+        out[consumer["name"]] = {
+            "attributed": sorted(set(attributed)),
+            "pending": pending,
+            "dropped": sorted(set(dropped)),
+        }
+    return out
+
+
 def resolve_refs(consumers: list[dict], fields_old: list[dict],
-                 fields_new: list[dict], edges: dict[str, set[str]]) -> dict:
+                 fields_new: list[dict], edges: dict[str, set[str]],
+                 attribution: dict | None = None) -> dict:
     """把下游写的旧名字解析到新字段上。
 
     解析必须过身份：先看这个名字在旧版本里是谁，再按 field_id 找到新版本里的它。
     名字还在、但已经换了身份的，一律算断链，不能悄悄绑到新列上。
+    裸列先过归属：唯一候选的按归属引用同样过身份，多候选的进待查不参与确认。
     """
+    if attribution is None:
+        attribution = attribute_bare(consumers, fields_old)
     old_index = {(field["table"].lower(), field["name"].lower()): field
                  for field in fields_old}
     new_by_id = {field["field_id"]: field for field in fields_new}
@@ -123,12 +171,22 @@ def resolve_refs(consumers: list[dict], fields_old: list[dict],
     resolved: list[dict] = []
     broken: list[dict] = []
     aliased: list[dict] = []
+    pending: list[dict] = []
+    dropped: list[dict] = []
     ref_counts: dict[tuple[str, str], int] = {}
     by_field: dict[str, set[str]] = {}
     direct_count = 0
+    attributed_count = 0
 
     for consumer in consumers:
-        for ref in consumer["refs"]:
+        per_consumer = attribution.get(consumer["name"]) or {}
+        worklist = [(ref, True) for ref in consumer["refs"]]
+        worklist += [(ref, False) for ref in per_consumer.get("attributed") or []]
+        pending.extend(per_consumer.get("pending") or [])
+        dropped.extend({"consumer": consumer["name"], "column": column,
+                        "reason": "REF_NO_CANDIDATE"}
+                       for column in per_consumer.get("dropped") or [])
+        for ref, qualified in worklist:
             table, column = sqlalias.split_ref(ref)
             key = (table.lower(), column.lower())
             ref_counts[key] = ref_counts.get(key, 0) + 1
@@ -175,10 +233,13 @@ def resolve_refs(consumers: list[dict], fields_old: list[dict],
                 "table": table,
                 "column": column,
                 "via": via,
+                "qualified": qualified,
                 "field_id": field["field_id"] if field else None,
                 "new_name": field["name"] if field else None,
                 "detail": detail,
             }
+            if not qualified:
+                attributed_count += 1
             if field is None:
                 broken.append(item)
                 continue
@@ -193,9 +254,14 @@ def resolve_refs(consumers: list[dict], fields_old: list[dict],
         "broken_count": len(broken),
         "aliased_count": len(aliased),
         "direct_count": direct_count,
+        "attributed_count": attributed_count,
+        "pending_count": len(pending),
+        "dropped_count": len(dropped),
         "resolved": resolved,
         "broken": broken,
         "aliased": aliased,
+        "pending": pending,
+        "dropped": dropped,
         "ref_counts": ref_counts,
         "by_field": by_field,
     }

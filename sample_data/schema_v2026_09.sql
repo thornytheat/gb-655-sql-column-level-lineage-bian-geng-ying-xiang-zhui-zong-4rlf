@@ -9,7 +9,7 @@ CREATE TABLE dim_order (
 );
 CREATE TABLE fct_pay (
   `pay_id`       BIGINT        NOT NULL,  -- fid=2001
-  `order_id`     BIGINT        NOT NULL,  -- fid=2002
+  `order_id`     INT           NOT NULL,  -- fid=2002
   `pay_amt`      DECIMAL(18,4) NOT NULL,  -- fid=2003
   `paid_at`      TIMESTAMP     NOT NULL,  -- fid=2004
   `pay_channel`  VARCHAR(8)    NULL,      -- fid=2005

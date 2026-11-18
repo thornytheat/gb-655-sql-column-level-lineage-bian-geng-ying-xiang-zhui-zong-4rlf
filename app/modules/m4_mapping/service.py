@@ -37,6 +37,8 @@ def load_refs(rel_path: str) -> dict:
             "refs": parsed["refs"],
             "aliases": parsed["aliases"],
             "unresolved": parsed["unresolved"],
+            "bare_columns": parsed["bare_columns"],
+            "scope_tables": parsed["scope_tables"],
             "upstream": [str(x) for x in (item.get("upstream") or [])],
             "downstream": [str(x) for x in (item.get("downstream") or [])],
         })
@@ -66,5 +68,10 @@ def build_mapping(fields_old: list[dict], fields_new: list[dict], diff: dict) ->
 
 
 def resolve(consumers: list[dict], fields_old: list[dict], fields_new: list[dict],
-            graph: dict) -> dict:
-    return mapping.resolve_refs(consumers, fields_old, fields_new, graph)
+            graph: dict, attribution: dict | None = None) -> dict:
+    return mapping.resolve_refs(consumers, fields_old, fields_new, graph, attribution)
+
+
+def attribute(consumers: list[dict], fields_old: list[dict]) -> dict:
+    """裸列归属：唯一候选确认、多候选待查、无候选丢弃。"""
+    return mapping.attribute_bare(consumers, fields_old)

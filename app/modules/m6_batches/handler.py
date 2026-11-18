@@ -73,6 +73,25 @@ def batches_api():
     }
 
 
+@router.get("/api/runs/{run_id}/impact")
+def run_impact_api(run_id: str):
+    """单个批次当时的影响清单：已确认与待查来源分开，旧批次不被重算。"""
+    run = store.run_by_id(run_id)
+    if not run:
+        raise errors.NotFound("没有这个批次", detail={"run_id": run_id})
+    graph = (run.get("impact") or {}).get("impact") or {}
+    return {
+        "run_id": run["run_id"],
+        "version_seq": run["version_seq"],
+        "version_label_old": run.get("version_label_old"),
+        "version_label_new": run.get("version_label_new"),
+        "confirmed": graph.get("rows") or [],
+        "pending": graph.get("pending") or [],
+        "total": graph.get("total") or 0,
+        "pending_total": graph.get("pending_total") or 0,
+    }
+
+
 @router.get("/api/reconcile")
 def reconcile_api():
     run = store.latest_run()

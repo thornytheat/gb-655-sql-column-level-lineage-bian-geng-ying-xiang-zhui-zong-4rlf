@@ -23,7 +23,7 @@ def _pairs(text: str) -> dict:
 def test_spec_markdown_has_clauses_and_footnotes(run):
     text = migration.spec_markdown(run)
     assert text.startswith(f"# 迁移单 {run['run_id']}")
-    for index in range(1, 7):
+    for index in range(1, 8):
         assert f"### 3.{index} " in text
     assert "[^1]" in text and "[^4]" in text
     assert "## 2 字段账" in text
@@ -35,8 +35,8 @@ def test_spec_markdown_has_clauses_and_footnotes(run):
 def test_spec_clauses_match_breaking_rows(run):
     clauses = migration.clauses(run)
     breaking = [row for row in run["diff"] if row["verdict"] == "BREAKING"]
-    assert len(clauses) == len(breaking) == 6
-    assert [item["no"] for item in clauses] == [f"3.{i}" for i in range(1, 7)]
+    assert len(clauses) == len(breaking) == 7
+    assert [item["no"] for item in clauses] == [f"3.{i}" for i in range(1, 8)]
     assert all(item["primary_label"] for item in clauses)
 
 
@@ -81,21 +81,27 @@ def test_big_field_id_survives_csv(client):
 
 def test_refs_csv_marks_broken(run):
     rows = _rows(migration.refs_csv_text(run))
-    assert len(rows) == expected.REFS_TOTAL
+    assert len(rows) == expected.REFS_TOTAL + expected.REFS_PENDING
     broken = [row for row in rows if row["reason"] == "REF_BROKEN"]
     assert len(broken) == expected.REFS_BROKEN
     aliased = [row for row in rows if row["via"] == "alias"]
     assert len(aliased) == expected.REFS_ALIASED
+    pending = [row for row in rows if row["reason"] == "REF_AMBIGUOUS"]
+    assert len(pending) == expected.REFS_PENDING
+    assert all(row["via"] == "pending" and row["candidates"] for row in pending)
+    attributed = [row for row in rows if row["qualified"] == "N" and not row["reason"]]
+    assert len(attributed) == expected.REFS_ATTRIBUTED
 
 
 def test_ledger_csv_values(run):
     rows = _pairs(migration.ledger_csv_text(run))
     assert rows["old_total"] == "13"
     assert rows["new_total"] == "16"
-    assert rows["unchanged"] == "4"
+    assert rows["unchanged"] == "3"
     assert rows["conflict"] == "1"
-    assert rows["refs_total"] == "17"
+    assert rows["refs_total"] == "18"
     assert rows["broken"] == "3"
+    assert rows["pending"] == "2"
 
 
 def test_manifest_json_fields(run):
@@ -105,7 +111,7 @@ def test_manifest_json_fields(run):
     assert len(payload["input_sha256"]) == 64
     assert payload["window_semantics"] == "[start, end)"
     assert payload["balanced"]["all"] is True
-    assert payload["counts"]["breaking"] == 6
+    assert payload["counts"]["breaking"] == 7
     assert payload["input_names"]["old"] == "schema_v2026_06.sql"
 
 

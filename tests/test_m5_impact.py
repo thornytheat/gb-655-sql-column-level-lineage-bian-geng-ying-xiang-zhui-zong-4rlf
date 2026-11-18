@@ -41,7 +41,8 @@ def test_impact_closure_from_sample_run(run):
     assert rows["dw.mv_user_dim"]["depth"] == 2
     assert rows["dw.mv_user_dim"]["via"] == "dw.mv_pay_daily"
     assert rows["dw.mv_order_stat"]["via"] == "broken"
-    assert [row["depth"] for row in graph["rows"]] == [1, 1, 1, 2]
+    assert [row["depth"] for row in graph["rows"]] == [1, 1, 1, 1, 2]
+    assert all(row["status"] == "confirmed" for row in graph["rows"])
 
 
 def test_broken_refs_carry_reason(run):
@@ -96,6 +97,6 @@ def test_summary_is_balanced(run):
 
 def test_changed_fields_exclude_added(run):
     rows = impact_service.changed_fields({"rows": run["diff"]})
-    assert len(rows) == 5
+    assert len(rows) == 6
     assert all(row["bucket"] != "added" for row in rows)
     assert all(row["verdict"] == "BREAKING" for row in rows)

@@ -18,7 +18,7 @@
       <thead>
         <tr>
           <th>批次</th><th class="num">序号</th><th>版本</th><th>生效起</th>
-          <th class="num">字段</th><th class="num">破坏</th><th class="num">断链</th><th>账</th><th>生成</th>
+          <th class="num">字段</th><th class="num">破坏</th><th class="num">断链</th><th class="num">待查</th><th>账</th><th>生成</th>
         </tr>
       </thead>
       <tbody>
@@ -31,6 +31,7 @@
           <td class="num">{{ item.old_total }}/{{ item.new_total }}</td>
           <td class="num">{{ item.breaking }}</td>
           <td class="num">{{ item.refs_broken }}</td>
+          <td class="num">{{ item.refs_pending }}</td>
           <td>{% if item.balanced %}<span class="st st-ok">平</span>{% else %}<span class="st st-bad">不平</span>{% endif %}</td>
           <td class="name">{{ item.created_at|day }}</td>
         </tr>
@@ -64,6 +65,8 @@
     <div><dt>可达</dt><dd>{{ ledger.refs.reachable }}<span class="unit">处</span></dd></div>
     <div><dt>断链</dt><dd>{{ ledger.refs.broken }}<span class="unit">处</span></dd></div>
     <div><dt>经别名</dt><dd>{{ ledger.refs.aliased }}<span class="unit">处</span></dd></div>
+    <div><dt>裸列归属</dt><dd>{{ ledger.refs.attributed }}<span class="unit">处</span></dd></div>
+    <div><dt>待查来源</dt><dd>{{ ledger.refs.pending }}<span class="unit">处</span></dd></div>
     <div><dt>引用差额</dt><dd>{{ ledger.refs.gap }}<span class="unit">处</span></dd></div>
   </dl>
   <p class="lede">生效区间 {{ reconcile.window.from|day }} 起，末端{{ '开' if not reconcile.window.to else '闭' }}<sup class="fn">2</sup></p>

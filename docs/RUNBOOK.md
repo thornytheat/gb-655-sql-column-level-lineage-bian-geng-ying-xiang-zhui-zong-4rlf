@@ -21,8 +21,8 @@ docker compose exec -T app python -m pytest -q
 1. 打开 `http://localhost:18214/`，看规格单的字段清单与采信诊断。
 2. `/types` 比较两个类型写法，看读者 / 写者两向结论。
 3. `/mapping` 看旧名到新名、别名 SQL、冲突项。
-4. `/impact` 看受影响节点、环、断链、单边登记。
-5. `/batches` 点「跑一次」，再点「陈旧提交」验证 409。
+4. `/impact` 看受影响节点（已确认）、待查来源、环、断链、单边登记。
+5. `/batches` 点「跑一次」，再点「陈旧提交」验证 409；每行批次的「待查」列显示当时的待查来源数。
 6. `/spec` 导出迁移单与三份账目 CSV。
 
 ## 4 重建数据库
@@ -49,6 +49,7 @@ docker compose up -d --build
 | GET | `/api/impact` | 影响面、环、断链 |
 | POST | `/api/runs` | 跑批次，可带基线版本号与生效区间 |
 | GET | `/api/batches` | 批次历史 |
+| GET | `/api/runs/{run_id}/impact` | 单个批次当时的影响清单（已确认 / 待查来源） |
 | GET | `/api/reconcile` | 四账对账 |
 | GET | `/api/export/spec.md` | 迁移单 Markdown |
 | GET | `/api/export/fields.csv` | 字段账 CSV |

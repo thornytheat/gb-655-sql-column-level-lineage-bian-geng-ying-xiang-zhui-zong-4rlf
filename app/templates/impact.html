@@ -3,13 +3,13 @@
 {% block body %}
 <section class="doc-section">
   <h1>影响面</h1>
-  <p class="lede">下游 <span class="mono">{{ summary.consumers or 0 }}</span>　受影响 <span class="mono">{{ graph.total or 0 }}</span>　环 <span class="mono">{{ summary.cycles or 0 }}</span>　断链 <span class="mono">{{ summary.broken or 0 }}</span></p>
+  <p class="lede">下游 <span class="mono">{{ summary.consumers or 0 }}</span>　已确认 <span class="mono">{{ graph.total or 0 }}</span>　待查来源 <span class="mono">{{ graph.pending_total or 0 }}</span>　环 <span class="mono">{{ summary.cycles or 0 }}</span>　断链 <span class="mono">{{ summary.broken or 0 }}</span></p>
   {% if empty %}
   <p class="empty">还没有批次。</p>
   {% else %}
   <div class="wrap-scroll">
     <table>
-      <caption>受影响节点<sup class="fn">1</sup></caption>
+      <caption>受影响节点（已确认）<sup class="fn">1</sup></caption>
       <thead>
         <tr><th>节点</th><th>类型</th><th class="num">深度</th><th>入口</th><th>依据</th></tr>
       </thead>
@@ -32,7 +32,35 @@
 </section>
 
 <section class="doc-section">
-  <h2><span class="clause">2</span>环与自引用</h2>
+  <h2><span class="clause">2</span>待查来源</h2>
+  {% if graph.get('pending') %}
+  <div class="wrap-scroll">
+    <table>
+      <caption>裸列同名多张表，来源未定<sup class="fn">2</sup></caption>
+      <thead>
+        <tr><th>节点</th><th>类型</th><th>裸列</th><th>候选来源</th><th>破坏候选</th><th>原因</th></tr>
+      </thead>
+      <tbody>
+        {% for row in graph.get('pending', []) %}
+        <tr>
+          <td class="name">{{ row.name }}</td>
+          <td>{{ row.kind }}</td>
+          <td class="name">{{ row.column }}</td>
+          <td class="name">{{ row.candidates|join('，') }}</td>
+          <td class="name">{{ row.breaking|join('，') }}</td>
+          <td class="reason"><span class="code">{{ row.reason|reason }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">没有待查来源的节点。</p>
+  {% endif %}
+</section>
+
+<section class="doc-section">
+  <h2><span class="clause">3</span>环与自引用</h2>
   {% if cycles.get('cycles') or cycles.get('self_loops') %}
   <table>
     <thead><tr><th>节点</th><th class="num">长度</th><th>原因</th></tr></thead>
@@ -51,7 +79,7 @@
 </section>
 
 <section class="doc-section">
-  <h2><span class="clause">3</span>断链与单边</h2>
+  <h2><span class="clause">4</span>断链与单边</h2>
   <div class="split">
     <div>
       <h3>断链</h3>
@@ -96,7 +124,8 @@
 
 <aside class="notes">
   <ol class="footnotes">
-    <li>深度按最短跳数算，同名节点只出现一次。<a class="back" href="#main">↩</a></li>
+    <li>深度按最短跳数算，同名节点只出现一次；已确认 = 限定引用或唯一候选裸列命中破坏字段。<a class="back" href="#main">↩</a></li>
+    <li>待查来源不向下游传播；归属确认后随下一批次退出或转为已确认。<a class="back" href="#main">↩</a></li>
     <li>断链节点按直接受影响计入。<a class="back" href="#main">↩</a></li>
   </ol>
 </aside>

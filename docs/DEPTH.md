@@ -1,7 +1,7 @@
 # 深度登记 lineageguard
 
-- 规模：中型（7 个功能模块，76 个文件，65 条测试）
-- 核心规则：SQL 别名源列先解析成列级边，依赖图通过环检测后再计算反向影响闭包。
+- 规模：中型（7 个功能模块，84 个文件，103 条测试）
+- 核心规则：SQL 别名源列先解析成列级边，依赖图通过环检测后再计算反向影响闭包；裸列按候选表归属，唯一候选才确认，多候选进待查。
 - 使用者与工作流：数仓开发在列改名或删除前，复核受影响的模型、任务与报表。
 
 ## 功能模块
@@ -12,7 +12,7 @@
 | M2 类型格 | 查类型格的值域与刻度，或直接比两个类型写法 | GET /api/types | `app/modules/m2_types/handler.py` `app/modules/m2_types/service.py` `app/modules/m2_types/coerce.py` `app/modules/m2_types/range.py` `app/modules/m2_types/lattice.py` | `tests/test_m2_types.py` |
 | M3 兼容判定 | 对一对版本做读者 / 写者两向判定 | POST /api/compat | `app/modules/m3_compat/handler.py` `app/modules/m3_compat/service.py` `app/modules/m3_compat/judge.py` `app/modules/m3_compat/direction.py` `app/modules/m3_compat/priority.py` | `tests/test_m3_compat.py` |
 | M4 字段映射 | 看旧名到新名的映射、别名 SQL、冲突项 | GET /api/mapping | `app/modules/m4_mapping/handler.py` `app/modules/m4_mapping/service.py` `app/modules/m4_mapping/mapping.py` `app/modules/m4_mapping/sqlalias.py` `app/modules/m4_mapping/rename.py` | `tests/test_m4_mapping.py` |
-| M5 影响面 | 解析列级边并查看下游影响、环、断链 | POST /api/lineage | `app/modules/m5_impact/handler.py` `app/modules/m5_impact/sql_lineage.py` `app/modules/m5_impact/closure.py` `app/modules/m5_impact/cycle.py` `app/modules/m5_impact/broken.py` | `tests/test_m5_impact.py` `tests/test_sql_lineage.py` |
+| M5 影响面 | 解析列级边并查看下游影响、环、断链、待查来源 | POST /api/lineage | `app/modules/m5_impact/handler.py` `app/modules/m5_impact/sql_lineage.py` `app/modules/m5_impact/closure.py` `app/modules/m5_impact/cycle.py` `app/modules/m5_impact/broken.py` | `tests/test_m5_impact.py` `tests/test_sql_lineage.py` `tests/test_pending_attribution.py` |
 | M6 版本批次 | 跑批次、看历史、验陈旧拒绝与区间重叠 | POST /api/runs | `app/modules/m6_batches/handler.py` `app/modules/m6_batches/service.py` `app/modules/m6_batches/window.py` `app/modules/m6_batches/guard.py` `app/modules/m6_batches/history.py` | `tests/test_m6_batches.py` |
 | M7 迁移单 | 出带列级证据的单一迁移清单 | GET /api/export/evidence.csv | `app/modules/m7_migration/handler.py` `app/modules/m7_migration/service.py` `app/modules/m7_migration/csv_out.py` `app/modules/m7_migration/ledger.py` | `tests/test_m7_migration.py` |
 
@@ -30,18 +30,20 @@
 | TRAP-22 | 同一字段被连续改过两次名 | 只认最近一跳，最早的名字解析不到 | 跨版本改名链一路解析到底 | `app/modules/m4_mapping/rename.py` | `tests/test_m4_mapping.py::test_trap22_alias_chain_resolves_multi_hop` |
 | TRAP-25 | 两个版本生效区间重叠 | 取到哪版看运气 | 半开区间比较，重叠直接标记警告 | `app/modules/m6_batches/window.py` | `tests/test_m6_batches.py::test_trap25_overlap_flagged_but_adjacent_clean` |
 | TRAP-26 | 基于旧版本号提交 | 后提交无条件覆盖新结果 | 版本号乐观锁，基线落后即 409 | `app/modules/m6_batches/guard.py` | `tests/test_m6_batches.py::test_trap26_stale_submission_rejected` |
+| TRAP-27 | 裸列同名对上多张表 | 猜来源误停无关任务，等全查清又卡住评审 | 唯一候选才归属，多候选进待查不传播，证据更新后重算退出或转确认 | `app/modules/m4_mapping/mapping.py` `app/modules/m5_impact/service.py` | `tests/test_pending_attribution.py` |
 
 ## 对账规则
 
 - 字段账：旧版本 = 未变 + 改名 + 换类型 + 改必填 + 冲突 + 删除
 - 字段账：新版本 = 未变 + 改名 + 换类型 + 改必填 + 冲突 + 新增
 - 引用账：登记引用 = 可达 + 断链，其中可达 = 直接 + 经别名
+- 引用账：登记引用 = 限定引用 + 已归属裸列；裸列 = 已归属 + 待查 + 无候选
 - 采信账：列定义行 = 接受字段 + 阻断行
 - 页面上四账并列显示，差额不为 0 即判不平
 
 ## 已知不覆盖
 
-- SQL 只认 `别名.列名`；无别名的裸列名、子查询、CTE、函数包裹的列都不抽。
+- SQL 限定引用只认 `别名.列名`；裸列只按唯一候选归属，多候选进待查不猜来源；子查询、CTE、函数包裹的列、`select *` 展开都不抽。
 - DDL 只解析 `CREATE TABLE` 的列定义，不处理分区、约束、索引与 `ALTER`。
 - 类型格只覆盖数值、字符、时间、布尔四族；映射表、数组、结构体一律算 `unknown`，保守判破坏。
 - 生效区间重叠只标记不阻断，最终以版本序号为准。

@@ -18,7 +18,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SAMPLE_DIR = PROJECT_ROOT / "sample_data"
 DEFAULT_DB = PROJECT_ROOT / "data" / "lineageguard.sqlite"
 
-RULESET_VERSION = os.environ.get("LINEAGEGUARD_RULESET", "fm-2026.11.1")
+RULESET_VERSION = os.environ.get("LINEAGEGUARD_RULESET", "fm-2026.11.2")
 
 # 采信层：编码回退链，首个能解码的胜出
 ENCODING_CHAIN = ("utf-8-sig", "utf-8", "gb18030")

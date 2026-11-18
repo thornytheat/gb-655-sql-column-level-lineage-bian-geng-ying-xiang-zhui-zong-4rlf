@@ -43,6 +43,8 @@ CODES: dict[str, tuple[str, str]] = {
     "REF_ONE_SIDED": ("上下游只登记了单向", "break"),
     "REF_CYCLE": ("下游依赖成环", "break"),
     "REF_SELF_LOOP": ("下游依赖指向自己", "warn"),
+    "REF_AMBIGUOUS": ("裸列同名多张表，来源待查", "warn"),
+    "REF_NO_CANDIDATE": ("裸列在来源表里没有对应字段", "info"),
     # 版本与批次
     "VERSION_STALE": ("基于旧版本提交", "break"),
     "VERSION_OVERLAP": ("生效区间与已有版本重叠", "warn"),

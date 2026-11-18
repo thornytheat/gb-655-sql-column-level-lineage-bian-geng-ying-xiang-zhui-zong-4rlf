@@ -15,7 +15,8 @@ FIELD_HEADER = [
     "primary_reason", "bucket", "ref_count", "line_old", "line_new",
 ]
 
-REF_HEADER = ["consumer", "kind", "ref", "table", "column", "via", "field_id", "reason"]
+REF_HEADER = ["consumer", "kind", "ref", "table", "column", "via", "field_id",
+              "qualified", "candidates", "reason"]
 
 
 def _buffer() -> tuple[io.StringIO, "csv.writer"]:
@@ -55,10 +56,17 @@ def refs_csv(run: dict) -> str:
     writer.writerow(REF_HEADER)
     for item in resolution.get("resolved") or []:
         writer.writerow([item["consumer"], item["kind"], item["ref"], item["table"],
-                         item["column"], item["via"], str(item["field_id"] or ""), ""])
+                         item["column"], item["via"], str(item["field_id"] or ""),
+                         "Y" if item.get("qualified", True) else "N", "", ""])
     for item in resolution.get("broken") or []:
         writer.writerow([item["consumer"], item["kind"], item["ref"], item["table"],
-                         item["column"], item.get("via") or "broken", "", "REF_BROKEN"])
+                         item["column"], item.get("via") or "broken", "",
+                         "Y" if item.get("qualified", True) else "N", "", "REF_BROKEN"])
+    for item in resolution.get("pending") or []:
+        writer.writerow([item["consumer"], item.get("kind") or "task", item["column"],
+                         "", item["column"], "pending", "", "N",
+                         "|".join(item.get("candidates") or []),
+                         item.get("reason") or "REF_AMBIGUOUS"])
     return buffer.getvalue()
 
 
@@ -71,7 +79,8 @@ def ledger_csv(ledger: dict) -> str:
         value = buckets.get(name, ledger.get("fields", {}).get(name, 0))
         writer.writerow([name, value])
     refs = ledger.get("refs") or {}
-    for name in ("refs_total", "reachable", "broken", "aliased"):
+    for name in ("refs_total", "qualified", "attributed", "reachable", "broken",
+                 "aliased", "pending", "dropped"):
         writer.writerow([name, refs.get(name, 0)])
     return buffer.getvalue()
 

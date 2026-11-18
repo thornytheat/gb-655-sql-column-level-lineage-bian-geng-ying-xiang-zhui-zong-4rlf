@@ -2,7 +2,8 @@
 
 字段账：旧版本 = 未变 + 改名 + 换类型 + 改必填 + 冲突 + 删除
         新版本 = 未变 + 改名 + 换类型 + 改必填 + 冲突 + 新增
-引用账：登记引用 = 可达 + 断链
+引用账：登记引用 = 可达 + 断链；登记引用 = 限定引用 + 已归属裸列
+裸列账：抽取裸列 = 已归属 + 待查来源 + 无候选
 """
 
 from __future__ import annotations
@@ -32,11 +33,19 @@ def field_ledger(diff: dict) -> dict:
 
 
 def ref_ledger(consumers: list[dict], resolution: dict) -> dict:
-    refs_total = sum(len(item["refs"]) for item in consumers)
+    qualified = sum(len(item["refs"]) for item in consumers)
+    attributed = int(resolution.get("attributed_count") or 0)
+    pending = int(resolution.get("pending_count") or 0)
+    dropped = int(resolution.get("dropped_count") or 0)
     reachable = int(resolution.get("reachable") or 0)
     broken = int(resolution.get("broken_count") or 0)
+    refs_total = qualified + attributed
     return {
         "refs_total": refs_total,
+        "qualified": qualified,
+        "attributed": attributed,
+        "pending": pending,
+        "dropped": dropped,
         "reachable": reachable,
         "broken": broken,
         "aliased": int(resolution.get("aliased_count") or 0),
@@ -65,6 +74,8 @@ def build(diff: dict, consumers: list[dict], resolution: dict) -> dict:
             "refs_reachable": refs["reachable"],
             "refs_broken": refs["broken"],
             "refs_aliased": refs["aliased"],
+            "refs_attributed": refs["attributed"],
+            "refs_pending": refs["pending"],
             "consumers": len(consumers),
         },
         "balanced": {

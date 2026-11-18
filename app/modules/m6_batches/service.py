@@ -15,10 +15,14 @@ from app.modules.m6_batches import guard, history, window as window_mod
 from app.modules.m7_migration import service as migration
 
 
-def _ref_counts(consumers: list[dict]) -> dict:
+def _ref_counts(consumers: list[dict], attribution: dict | None = None) -> dict:
+    """确认引用的计数：限定引用 + 已归属裸列；待查裸列不算确认。"""
     counts: dict[tuple[str, str], int] = {}
     for consumer in consumers:
-        for ref in consumer["refs"]:
+        refs = list(consumer["refs"])
+        if attribution is not None:
+            refs += list((attribution.get(consumer["name"]) or {}).get("attributed") or [])
+        for ref in refs:
             table, _, column = ref.rpartition(".")
             key = (table.lower(), column.lower())
             counts[key] = counts.get(key, 0) + 1
@@ -93,11 +97,12 @@ def execute(old_file: str = config.DEFAULT_OLD, new_file: str = config.DEFAULT_N
         reused["reused"] = True
         return reused
 
-    ref_counts = _ref_counts(refs["consumers"])
+    attribution = mapping.attribute(refs["consumers"], old_snapshot["fields"])
+    ref_counts = _ref_counts(refs["consumers"], attribution)
     diff = compat.diff_snapshots(old_snapshot, new_snapshot, ref_counts)
     edges = _edges(old_snapshot, new_snapshot, diff, base_snapshot)
     resolution = mapping.resolve(refs["consumers"], old_snapshot["fields"],
-                                 new_snapshot["fields"], edges)
+                                 new_snapshot["fields"], edges, attribution)
     mapping_table = mapping.build_mapping(old_snapshot["fields"], new_snapshot["fields"], diff)
     impact_payload = impact.build(diff, refs["consumers"], resolution)
     ledger = migration.build_ledger(diff, refs["consumers"], resolution)

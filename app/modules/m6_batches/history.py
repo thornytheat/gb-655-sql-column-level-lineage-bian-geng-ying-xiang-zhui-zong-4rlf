@@ -22,6 +22,7 @@ def summary_of(run: dict) -> dict:
         "breaking": counts.get("breaking", 0),
         "refs_total": counts.get("refs_total", 0),
         "refs_broken": counts.get("refs_broken", 0),
+        "refs_pending": counts.get("refs_pending", 0),
         "consumers": counts.get("consumers", 0),
         "balanced": bool(balanced.get("all")),
         "reused": bool(run.get("reused")),

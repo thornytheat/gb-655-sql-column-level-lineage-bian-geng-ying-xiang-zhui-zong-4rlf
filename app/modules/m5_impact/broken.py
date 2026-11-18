@@ -51,12 +51,17 @@ def broken_refs(resolution: dict) -> list[dict]:
 
 
 def summary(consumers: list[dict], resolution: dict, cycles: dict) -> dict:
-    refs_total = sum(len(item["refs"]) for item in consumers)
+    qualified = sum(len(item["refs"]) for item in consumers)
+    attributed = int(resolution.get("attributed_count") or 0)
     reachable = int(resolution.get("reachable") or 0)
     broken = int(resolution.get("broken_count") or 0)
+    refs_total = qualified + attributed
     return {
         "consumers": len(consumers),
         "refs_total": refs_total,
+        "qualified": qualified,
+        "attributed": attributed,
+        "pending": int(resolution.get("pending_count") or 0),
         "reachable": reachable,
         "broken": broken,
         "aliased": int(resolution.get("aliased_count") or 0),

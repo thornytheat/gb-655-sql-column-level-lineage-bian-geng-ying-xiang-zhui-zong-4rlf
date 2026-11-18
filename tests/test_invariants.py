@@ -25,7 +25,10 @@ def test_field_account_is_conserved(run):
 def test_ref_account_is_conserved(run):
     refs = run["ledger"]["refs"]
     assert refs["reachable"] + refs["broken"] == refs["refs_total"]
-    assert refs["refs_total"] == sum(len(item["refs"]) for item in run["refs"]["consumers"])
+    assert refs["qualified"] == sum(len(item["refs"]) for item in run["refs"]["consumers"])
+    assert refs["refs_total"] == refs["qualified"] + refs["attributed"]
+    bare_total = sum(len(item["bare_columns"]) for item in run["refs"]["consumers"])
+    assert refs["attributed"] + refs["pending"] + refs["dropped"] == bare_total
     assert refs["gap"] == 0
     assert refs["direct"] + refs["aliased"] >= refs["reachable"]
 
